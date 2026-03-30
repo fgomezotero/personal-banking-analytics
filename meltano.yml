@@ -1,0 +1,73 @@
+version: 1
+default_environment: dev
+project_id: 99ebe13e-6757-48cd-b428-2e619d5603a8
+environments:
+- name: dev
+- name: staging
+- name: prod
+
+plugins:
+  extractors:
+  - name: tap-spreadsheets
+    namespace: tap_spreadsheets
+    executable: tap-spreadsheets
+    pip_url: git+https://github.com/celine-eu/tap-spreadsheets.git
+  - name: tap-scotia
+    inherit_from: tap-spreadsheets
+    config:
+      files:
+      - path: data/scotia/debito/*.csv
+        format: csv
+        table_name: scotia_debito
+        # primary_keys: [Comprobante]
+        skip_rows: 0
+  - name: tap-bbva
+    inherit_from: tap-spreadsheets
+    config:
+      files:
+      - path: data/bbva/debito/*.csv
+        format: csv
+        table_name: bbva_debito
+        skip_rows: 5
+  - name: tap-itau
+    inherit_from: tap-spreadsheets
+    config:
+      files:
+      - path: data/itau/debito/debito_xlsx/*.xlsx
+        format: excel
+        worksheet: Estado de Cuenta
+        table_name: itau_debito
+        skip_rows: 6
+
+  utilities:
+  - name: pre-itau
+    namespace: pre_itau
+    executable: python
+    commands:
+      convert_xls:
+        args: extract/convert_itau_xls_to_xlsx.py
+
+  loaders:
+  - name: target-jsonl
+    variant: andyh1203
+    pip_url: target-jsonl
+    config:
+      destination_path: output
+      do_timestamp_file: true
+  - name: target-bigquery
+    variant: z3z1ma
+    pip_url: "setuptools<81 git+https://github.com/z3z1ma/target-bigquery.git"
+    config:
+      project: finanzas-personales-457115
+      dataset: bronze
+      credentials_path: secrets/finanzas-personales.json
+      denormalized: true
+      method: batch_job
+      overwrite: [scotia_debito, itau_debito, bbva_debito]
+      stream_maps:
+        itau_debito:
+          # Filtro para no ingestar las filas donde el campo concepto sea igual a "SALDO ANTERIOR" y "SALDO FINAL"
+          __filter__: not (concepto.endswith("SALDO ANTERIOR") or concepto.endswith("SALDO FINAL"))
+        bbva_debito:
+          # Excluye filas vacias generadas por lineas en blanco en el CSV fuente.
+          __filter__: fecha is not None
