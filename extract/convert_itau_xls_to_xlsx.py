@@ -17,6 +17,8 @@ TARGET_DIR = "data/itau/debito/debito_xlsx"
 
 
 def _convert_cell(book: xlrd.book.Book, cell: xlrd.sheet.Cell):
+    """Convert an xlrd cell to a Python/openpyxl compatible value."""
+
     if cell.ctype == xlrd.XL_CELL_EMPTY:
         return None
     if cell.ctype == xlrd.XL_CELL_TEXT:
@@ -38,6 +40,8 @@ def _convert_cell(book: xlrd.book.Book, cell: xlrd.sheet.Cell):
 
 
 def convert_xls_to_xlsx(source_path: str, target_path: str) -> None:
+    """Convert one .xls workbook into .xlsx while preserving sheet order and values."""
+
     book = xlrd.open_workbook(source_path, formatting_info=False)
     out_wb = openpyxl.Workbook()
 
@@ -60,6 +64,8 @@ def convert_xls_to_xlsx(source_path: str, target_path: str) -> None:
 
 
 def main() -> int:
+    """Convert all Itaú .xls files to .xlsx, skipping outputs that are up to date."""
+
     source_files = sorted(glob.glob(SOURCE_GLOB))
     if not source_files:
         print(f"No source files found with pattern: {SOURCE_GLOB}")
