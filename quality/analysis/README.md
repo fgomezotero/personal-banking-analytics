@@ -122,6 +122,8 @@ Total expense:       $1,180,000.00
 Net:                 $60,000.00
 ```
 
+Note: the values above are synthetic example data for documentation only.
+
 | Status | Meaning | Action |
 | --- | --- | --- |
 | Surplus | Net > 0: income > expense | Normal |
