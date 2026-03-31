@@ -1,62 +1,51 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error
 """
-Monthly Impact Analysis: Valida data shift considerando ciclos de inversión
+Monthly Impact Analysis: validates data-shift behavior considering investment cycles
 
-PROPOSITO:
-  Análisis de impacto mensual global. Muestra qué meses tienen debit/Credit
-  desbalanceado y si se explica por ciclos de inversión.
+PURPOSE:
+  Global monthly impact analysis. Shows which months have debit/credit
+  imbalance and whether it is explained by investment cycles.
 
-USO:
+USAGE:
   conda run -n meltano python3 quality/analysis/06_monthly_impact_analysis.py
 
-OUTPUT ESPERADO:
-  Dos secciones:
+EXPECTED OUTPUT:
+  Two sections:
 
-  1. Movimientos de Inversión/Retención por Mes
-     Mostratomía tipo inversión filtrada por mes:
+  1. Investment/Retention Movements by Month
+     Investment-like movements filtered by month:
      2024-05 | LETRA DE CAMBIO... | 1 ops | D:$100,000.00 C:$0.00
 
-  2. Monthly Debit vs Credit (últimos 12 meses)
-     Tabla comparativa mensual:
+  2. Monthly Debit vs Credit (last 12 months)
+     Monthly comparison table:
      2024-05 | 25 trans | D:$250,000 | C:$200,000 | Net:$50,000 ⚠️ DEBIT
      2024-06 | 22 trans | D:$180,000 | C:$280,000 | Net:-$100,000 ✓
 
-  Interpretación del Net:
-  • Positivo (MAS DEBITS): Mes con más gastos/inversiones que ingresos
-  • Negativo (MAS CREDITS): Mes con más ingresos que gastos
-  • Alto (±$100k+): Probablemente ciclo de inversión inicio/cierre
+  Net interpretation:
+  • Positive (MORE DEBITS): month with more spending/investment outflow than income
+  • Negative (MORE CREDITS): month with more income than spending
+  • High (±$100k+): likely investment-cycle open/close behavior
 
-COMO INTERPRETAR RESULTADOS:
-  ⚠️ DEBIT (Net > $100): Mes con desequilibrio de gastos
-    Casos normales:
-    a) Ciclo de inversión 6M iniciado (débito de letra)
-    b) Retención de impuestos o comisión
-    c) Gasto real de efectivo (no inversión)
+HOW TO INTERPRET RESULTS:
+  ⚠️ DEBIT (Net > threshold): month with expense-side imbalance
+    Common valid cases:
+    a) 6-month investment cycle started
+    b) Tax withholding or commissions
+    c) Real cash spending (non-investment)
 
-    Investigar:
-    - ¿Hay movimiento tipo inversión ese mes?
-    - ¿El débito tiene crédito en mes+6?
-    - ¿Es gasto operativo o retención?
+  ✓ BALANCED: month without significant imbalance
 
-  ✓ Balanceado: Mes sin desequilibrio significativo
-
-DATA SHIFT explicado:
-  Si Net > $100k en meses A y Net < -$100k en mes A+6:
-  → ES data shift LEGÍTIMO por ciclos de inversión
-  → NO es error en ETL; es flujo de efectivo normal
+DATA SHIFT interpretation:
+  If Net > $100k in month A and Net < -$100k in month A+6:
+  -> this is usually LEGITIMATE shift caused by investment cycles
+  -> not necessarily an ETL issue
 
 GUARDRAILS:
-  • Ejecutar después de scripts 01-05 para contexto completo
-  • Último mes puede parecer incompleto si ciclos aún abiertos
-  • Comparar Net vs movimientos inversión para context
-  • Si Net erráticoo sin explicación: posible error en transformación silver
-
-DECISIÓN FINAL sobre Data Shift:
-  ✅ ACEPTADO: Si Net explica ciclos de inversión documentados (ver scripts 03-05)
-  ❌ INVESTIGAR: Si Net > $100k sin ciclo obvioo o sin movimientos inversión
-
-  Próximo paso: Revisar manual en BigQuery los movimientos de ese mes
+  • Run after scripts 01-05 for full context
+  • Latest month may look incomplete when cycles are still open
+  • Compare Net against investment movements for proper context
+  • If Net is erratic without explanation, inspect silver transformations
 """
 from google.cloud import bigquery
 import json
@@ -88,7 +77,7 @@ print(f"Bank: {bank}")
 if focus_month:
     print(f"Focus month: {focus_month}")
 
-# Primero, identifica movimientos de inversión/retenidos históricos en el banco objetivo
+# First, identify historical investment/retention-like movements in the target bank
 q_all_investments = f"""
 SELECT
   FORMAT_DATE('%Y-%m', transaction_date) as ym,
@@ -109,7 +98,7 @@ GROUP BY 1, 2
 ORDER BY ym DESC
 """
 
-print("\nMovimientos de Inversión/Retención por Mes:")
+print("\nInvestment/Retention Movements by Month:")
 print("-" * 70)
 results = list(client.query(q_all_investments).result())
 if results:
@@ -118,10 +107,10 @@ if results:
             f'{row["ym"]} | {row["description"][:40]:40} | {row["cnt"]:2} ops | D:${row["debit_amt"]:9,.2f} C:${row["credit_amt"]:9,.2f}'
         )
 else:
-    print("  (Ninguno encontrado)")
+    print("  (None found)")
 
-# Ahora analiza: ¿hay impacto por ciclos?
-# Busca meses donde debit != credit (pueden ser ciclos parciales)
+# Now analyze cycle impact
+# Find months where debit != credit (may represent partial cycles)
 q_monthly_imbalance = f"""
 SELECT
   FORMAT_DATE('%Y-%m', transaction_date) as ym,
@@ -144,7 +133,7 @@ ORDER BY 1 DESC
 LIMIT 12
 """
 
-print("\n\nMonthly Debit vs Credit (últimos 12 meses):")
+print("\n\nMonthly Debit vs Credit (last 12 months):")
 print("-" * 70)
 print(
     f'{"Month":10} | {"Trans":7} | {"Expense":12} | {"Income":12} | {"Net":12} | {"Flag":10}'
@@ -186,10 +175,10 @@ if focus_month:
 print(f'\n{"="*70}')
 print("INTERPRETATION:")
 print("-" * 70)
-print("Si Net es positivo (MAS DEBITS que CREDITS):")
-print("  • Puede ser: ciclo de inversión iniciado pero devolución en mes siguiente")
-print("  • Puede ser: gasto real sin correspondencia")
-print("  • Necesita: análisis individual o verificación bancaria")
+print("If Net is positive (MORE DEBITS than CREDITS):")
+print("  • It may be: an investment cycle that started, with return in a later month")
+print("  • It may be: real spending without matching income")
+print("  • It requires: individual movement analysis or bank-level verification")
 print()
-print("Data Shift = Cambio artificial en cifras por ciclos multi-mes")
-print("NO necesariamente indica un problema en el ETL")
+print("Data Shift = artificial monthly movement caused by multi-month financial cycles")
+print("It does not necessarily indicate an ETL problem")

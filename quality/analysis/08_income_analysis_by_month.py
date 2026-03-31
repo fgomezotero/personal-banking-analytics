@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error,broad-exception-caught
 """
-Income Analysis by Month: analiza los incomes de un mes especifico
+Income Analysis by Month: analyze incomes for a specific month
 
-PROPOSITO:
-    Devuelve el resumen de incomes para un YYYY-MM dado.
-    Incluye total del mes, distribucion por banco y top descripciones.
+PURPOSE:
+    Returns an income summary for a given YYYY-MM.
+    Includes monthly total, bank distribution, and top descriptions.
 
-USO:
+USAGE:
     conda run -n meltano python3 quality/analysis/08_income_analysis_by_month.py [YYYY-MM]
 
-EJEMPLOS:
+EXAMPLES:
     conda run -n meltano python3 quality/analysis/08_income_analysis_by_month.py 2025-04
 """
 from google.cloud import bigquery
@@ -26,7 +26,7 @@ client = bigquery.Client.from_service_account_info(
 
 if len(sys.argv) != 2:
     print(
-        "Uso: conda run -n meltano python3 quality/analysis/08_income_analysis_by_month.py YYYY-MM"
+        "Usage: conda run -n meltano python3 quality/analysis/08_income_analysis_by_month.py YYYY-MM"
     )
     sys.exit(2)
 
@@ -75,7 +75,7 @@ LIMIT 10
 try:
     summary_rows = list(client.query(summary_query).result())
     if not summary_rows:
-        print("\n(No se pudo obtener resumen)")
+        print("\n(Could not retrieve summary)")
         sys.exit(3)
 
     summary = summary_rows[0]
@@ -85,7 +85,7 @@ try:
     description_count = int(summary["descriptions"] or 0)
 
     if income_rows == 0:
-        print("\n(No hay incomes para el mes solicitado)")
+        print("\n(No incomes found for the requested month)")
         sys.exit(0)
 
     print(f"\nIncome rows:         {income_rows}")

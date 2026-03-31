@@ -1,51 +1,51 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error
 """
-Monthly Investment Impact: Muestra cómo ciclos de 6 meses impactan balance mensual
+Monthly Investment Impact: shows how 6-month cycles impact monthly balance
 
-PROPOSITO:
-  Analiza ciclos de inversión (letras 6M, fondos plazo) y su impacto mes a mes.
-  Explica por qué meses tienen débito/crédito desbalanceado (data shift legítimo).
+PURPOSE:
+  Analyzes investment cycles (6M letters/funds) and their month-by-month impact.
+  Explains why some months have debit/credit imbalance (legitimate data shift).
 
-USO:
+USAGE:
   conda run -n meltano python3 quality/analysis/04_monthly_investment_impact.py
 
-OUTPUT ESPERADO:
-  1. Listado de ciclos debit->credit encontrados (6 meses típicamente)
-  2. Tabla de impacto mensual: débitos, créditos y net por mes
-  3. Conclusión explicando ciclos vs errores de ETL
+EXPECTED OUTPUT:
+  1. List of detected debit->credit cycles (typically around 6 months)
+  2. Monthly impact table: debits, credits, and net by month
+  3. Conclusion explaining cycles vs ETL errors
 
-COMO INTERPRETAR RESULTADOS:
-  Ciclos de Inversión-Devolución:
+HOW TO INTERPRET RESULTS:
+  Investment-Recovery Cycles:
   2024-05-01 DEBIT:  $100,000.00
     ↓
   2024-11-01 CREDIT: $101,234.00  (184 days after)
 
-  Monthly Summary row ejemplo:
-  2024-05 D: $100,000.00  C: $0.00      Net: -$100,000  → Ciclo iniciado
-  2024-11 D: $0.00       C: $101,234.00 Net: +$101,234  → Ciclo cerrado (ganancia)
+  Monthly Summary row example:
+  2024-05 D: $100,000.00  C: $0.00      Net: -$100,000  -> Cycle started
+  2024-11 D: $0.00       C: $101,234.00 Net: +$101,234  -> Cycle closed (gain)
 
-  ⚠️  Esto es NORMAL, no es data shift. Es flujo de efectivo real.
+  ⚠️  This is NORMAL and not an ETL issue. It reflects real cash flow timing.
 
-COMO INTERPRETAR:
-  • Mes de DEBIT: Sale efectivo (inversión realizada)
-  • Mes de CREDIT: Entra efectivo (inversión recuperada + intereses)
-  • Net Impact: Diferencia mensual por cicltail
+INTERPRETATION:
+  • DEBIT month: cash outflow (investment created)
+  • CREDIT month: cash inflow (investment recovered + interests)
+  • Net Impact: monthly difference caused by cycle timing
 
-  Si Net > $100,000 en mes: Probablemente ciclo cierre de inversión
-  Si Net < -$100,000 en mes: Probablemente ciclo inicio de inversión
+  If Net > $100,000 in a month: likely an investment cycle closing
+  If Net < -$100,000 in a month: likely an investment cycle opening
 
 GUARDRAILS:
-  • Ciclos cortos (< 60 días) son excepciones; 180 días es típico
-  • Intereses generan diferencia entre debit y credit (ej: 100k→101.2k)
-  • Si ciclo >210 días, puede estar sin cerrar; ver script 05
-  • Ejecutar después de 03 para mejor contexto
+  • Short cycles (< 60 days) are exceptions; ~180 days is typical
+  • Interests can create debit/credit differences (e.g., 100k -> 101.2k)
+  • If cycle >210 days, it may still be open; see script 05
+  • Run after script 03 for better context
 
-PRÓXIMOS PASOS:
-  Si data shift confirmado, revisar:
-  1. Meses donde Net >> $10,000 sin ciclo obvio
-  2. Usar script 05 (deep analysis) para ciclos sin cerrar
-  3. Verificar manualmente movimientos en esos meses
+NEXT STEPS:
+  If data shift is confirmed, review:
+  1. Months where Net >> $10,000 without an obvious cycle
+  2. Use script 05 (deep analysis) for open cycles
+  3. Manually verify movements in those months
 """
 from google.cloud import bigquery
 import json
@@ -61,7 +61,7 @@ print(f'\n{"="*90}')
 print("MONTHLY IMPACT: 6-Month Investment Cycles")
 print(f'{"="*90}')
 
-# Obtén todos los ciclos de 6 meses ligados a INVERSIONES/LETRAS
+# Retrieve 6-month cycles associated with investment-related movements
 q = """
 WITH debits AS (
   SELECT
@@ -108,10 +108,10 @@ results = list(client.query(q).result())
 if not results:
     print("\n(No investment cycles found)")
 else:
-    print("\nCiclos de Inversión-Devolución (Letras 6 meses):")
+    print("\nInvestment-Recovery Cycles (6-month letters):")
     print("-" * 90)
 
-    # Agrupa por mes de débito y mes de crédito
+    # Group by debit month and credit month
     monthly_impact = {}
 
     for row in results:
@@ -147,7 +147,7 @@ else:
         else:
             print("  → (No matching credit found)")
 
-    # Resumen por mes
+    # Monthly summary
     print(f'\n\n{"="*90}')
     print("MONTHLY SUMMARY (Investment Impact):")
     print("-" * 90)
@@ -171,6 +171,6 @@ else:
 print(f'\n{"="*90}')
 print("CONCLUSION:")
 print('  Investment cycles (6-month letras) explain "data shift" in affected months.')
-print("  Débito month: Shows expense/outflow")
-print("  Crédito month: Shows income/recovery (6 months later)")
+print("  Debit month: Shows expense/outflow")
+print("  Credit month: Shows income/recovery (6 months later)")
 print("  This is NORMAL for investment operations - NOT a data integrity issue.")

@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error,broad-exception-caught
 """
-Data Flow Audit: Muestra qué se filtra en cada fase Bronze->Silver->Gold
+Data Flow Audit: shows what is filtered at each Bronze->Silver->Gold stage
 
-PROPOSITO:
-  Audita el flujo de datos real en cada capa medallion.
-  Calcula cuántas filas se pierden en cada transformación y por qué.
+PURPOSE:
+  Audits real data flow across each medallion layer.
+  Calculates how many rows are lost at each transformation stage and why.
 
-USO:
-  conda run -n meltano python3 quality/analysis/02_audit_flow.py [banco] [YYYY-MM]
+USAGE:
+  conda run -n meltano python3 quality/analysis/02_audit_flow.py [bank] [YYYY-MM]
 
-EJEMPLOS:
-  # Auditar Scotia octubre 2024
+EXAMPLES:
+  # Audit Scotia October 2024
   conda run -n meltano python3 quality/analysis/02_audit_flow.py scotia 2024-10
 
-  # Auditar Itaú mayo 2024
+  # Audit Itau May 2024
   conda run -n meltano python3 quality/analysis/02_audit_flow.py itau 2024-05
 
-OUTPUT ESPERADO:
-  Visualización en cascada del pipeline:
+EXPECTED OUTPUT:
+  Pipeline cascade visualization:
   BRONZE (X filas)
     ↓ Parsing + Filter
   SILVER (Y filas) [OK|LOSE]
@@ -27,23 +27,23 @@ OUTPUT ESPERADO:
     ↓ Aggregation
   GOLD (N filas)
 
-COMO INTERPRETAR RESULTADOS:
-  [OK] = No se perdieron filas en esa etapa (esperado)
-  [LOSE] = Se filtraron filas (normal; detalles debajo)
+HOW TO INTERPRET RESULTS:
+  [OK] = No rows lost at this stage (expected)
+  [LOSE] = Rows were filtered (normal; see details)
 
-  % de filtrado: Porcentaje de filas descartadas
+  Filter %: percentage of discarded rows
   Common causes:
-  - Bronze→Silver: Filas vacías vs schema, tipos inválidos
-  - Silver→Fact: Deduplicación de movimientos duplicados e ingestion
-  - Fact→Gold: Agregación (esperado: muchas filas se agrupan en pocas)
+  - Bronze→Silver: Empty rows vs schema, invalid types
+  - Silver→Fact: Deduplication of duplicate ingestions/movements
+  - Fact→Gold: Aggregation (expected: many rows grouped into fewer rows)
 
-  ⚠️  Si LOSE > 10% sin justificación, investigar stream_maps o dbt transforms
+  ⚠️  If LOSE > 10% without clear justification, inspect stream_maps or dbt transforms
 
 GUARDRAILS:
-  • Esperar pérdida de filas en Fact→Gold (es agregación)
-  • Si Bronze→Silver tiene LOSE alto, revisar meltano.yml stream_maps
-  • Si Silver→Fact tiene LOSE alto, revisar dbt deduplicación
-  • Ejecutar después de 01_validate_shift.py para contexto
+  • Expect row loss in Fact→Gold (aggregation effect)
+  • If Bronze→Silver LOSE is high, review meltano.yml stream_maps
+  • If Silver→Fact LOSE is high, review dbt deduplication logic
+  • Run after 01_validate_shift.py for context
 """
 from google.cloud import bigquery
 import json
@@ -68,7 +68,7 @@ print(f"DATA FLOW AUDIT: {bank.upper()} - {year_month}")
 print(f'{"="*70}')
 
 try:
-    # Mapeo de tabla por banco
+    # Source table mapping by bank
     bronze_table = {
         "itau": "itau_debito",
         "scotia": "scotia_debito",
@@ -76,7 +76,7 @@ try:
     }.get(bank)
 
     if not bronze_table:
-        print(f'ERROR: Banco "{bank}" no soportado')
+        print(f'ERROR: Unsupported bank "{bank}"')
         sys.exit(1)
 
     # BRONZE
@@ -89,7 +89,7 @@ try:
     r2 = list(client.query(q2).result())[0]
     silver_count = r2["total"]
 
-    # FACT (pre-agregacion)
+    # FACT (pre-aggregation)
     q3 = f"""SELECT COUNT(*) as total FROM `finanzas-personales-457115.gold.fact_transactions` WHERE bank_code = "{bank}" AND FORMAT_DATE("%Y-%m", transaction_date) = "{year_month}" """
     r3 = list(client.query(q3).result())[0]
     fact_count = r3["total"]

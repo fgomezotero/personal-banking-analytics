@@ -1,85 +1,136 @@
-# Finanzas Personales - Pipeline de Ingesta Bancaria
+# Personal Finance - Banking Ingestion Pipeline
 
-Proyecto ETL/ELT con Meltano para consolidar movimientos bancarios desde archivos locales (CSV/XLS) hacia BigQuery.
+ETL/ELT project built with Meltano to consolidate personal banking movements from local files (CSV/XLS) into BigQuery.
 
-## Objetivo
+## Goal
 
-Unificar movimientos de cuentas bancarias personales en un flujo reproducible para:
+Unify personal bank-account movements in a reproducible workflow to:
 
-- validar localmente la ingesta en JSONL,
-- cargar datos fuente al data warehouse,
-- habilitar analisis financiero posterior.
+- validate ingestion locally in JSONL,
+- load source data into the data warehouse,
+- enable downstream financial analytics.
 
-## Arquitectura de datos
+## Data Architecture
 
-- Arquitectura medallion.
-- La ingesta aterriza en la capa `bronze`.
-- Dataset actual en BigQuery: `bronze`.
+- Medallion architecture.
+- Ingestion first lands in the `bronze` layer.
+- Current BigQuery dataset for ingestion: `bronze`.
 
-## Fuente de verdad de configuracion
+### High-Level Architecture Diagram
 
-Toda la configuracion del pipeline vive en `meltano.yml`.
+```mermaid
+flowchart LR
+  A[Local CSV/XLS files\nItau, Scotia, BBVA] --> B[Meltano Extractors\ntap-itau, tap-scotia, tap-bbva]
+  B --> C[target-jsonl\nLocal output validation]
+  B --> D[target-bigquery\nBigQuery bronze load]
 
-## Transformaciones dbt (silver/gold)
+  D --> E[BigQuery Bronze\nRaw source data by bank]
+  E --> F[dbt Silver\nStandardization and classification]
+  F --> G[dbt Gold\nFacts and monthly aggregates]
 
-La capa de transformaciones analiticas con dbt se documenta en:
+  G --> H[quality/analysis scripts\n01-08 validation and analysis]
+  G --> I[Analytics consumption\nreports and financial exploration]
+```
+
+## Configuration Source of Truth
+
+All pipeline configuration lives in `meltano.yml`.
+
+## dbt Transformations (silver/gold)
+
+The analytical transformation layer with dbt is documented in:
 
 - `transform/README.md`
 
-Incluye:
+It includes:
 
-- prerequisitos y configuracion de perfiles,
-- ejecucion de modelos (`dbt run` / `dbt build`),
-- ejecucion de tests (`dbt test`),
-- generacion y publicacion local de documentacion y linaje (`dbt docs generate` / `dbt docs serve`).
+- prerequisites and profile setup,
+- model execution (`dbt run` / `dbt build`),
+- test execution (`dbt test`),
+- local documentation and lineage generation (`dbt docs generate` / `dbt docs serve`).
 
-## Fuentes configuradas
+## Data-Model Business Assumptions
+
+These assumptions drive `silver` and `gold` model design for consistent analytics:
+
+1. **Closed movement classification**
+   - Every movement is classified as `income`, `expense`, or `internal_transfer`.
+   - Open-ended categories are avoided in the canonical layer to prevent aggregate ambiguity.
+
+2. **Internal transfers are not real income/expense**
+   - `internal_transfer` represents movement of own funds.
+   - In `gold`, it does not impact `income_amount` or `expense_amount`.
+   - It may appear in movement counts, but it must not distort real cash flow.
+
+3. **Absolute amount normalization in `silver`**
+   - `debit_amount` and `credit_amount` are normalized to absolute values for consistent rules.
+   - Accounting semantics come from `movement_type`, not numeric sign.
+
+4. **Do not persist net balance in detail tables**
+   - `net_balance` is not stored as a physical column in detail-level `silver`/`gold` tables.
+   - Net balance is computed in queries/aggregates to avoid duplicated logic.
+   - Definition: `net_balance = income - expense`.
+
+5. **Medallion responsibility by layer**
+   - `bronze`: raw source data.
+   - `silver`: standardization, cleansing, classification.
+   - `gold`: facts and consumption-ready aggregates.
+
+6. **Reconciliation by movement type**
+   - Validation of `debit -> expense` and `credit -> income` is done by `movement_type`.
+   - Comparing total debits against expenses without isolating `internal_transfer` creates false-positive data-shift alerts.
+
+7. **Monthly data shift can be legitimate due to financial cycles**
+   - Large monthly imbalances may be explained by multi-month cycles (for example, investments).
+   - A monthly imbalance does not automatically imply ETL failure; validate with audit scripts.
+
+## Configured Sources
 
 - Itau (`tap-itau`)
-  - Origen: `data/itau/debito/debito_xlsx/*.xlsx`
-  - Tipo: excel
-  - Hoja: `Estado de Cuenta`
+  - Source: `data/itau/debito/debito_xlsx/*.xlsx`
+  - Type: excel
+  - Sheet: `Estado de Cuenta`
   - `skip_rows: 6`
-  - Nota: los `.xls` se convierten a `.xlsx` con `extract/convert_itau_xls_to_xlsx.py`.
+  - Note: `.xls` files are converted to `.xlsx` with `extract/convert_itau_xls_to_xlsx.py`.
 
 - Scotia (`tap-scotia`)
-  - Origen: `data/scotia/debito/*.csv`
-  - Tipo: csv
-  - Tabla: `scotia_debito`
+  - Source: `data/scotia/debito/*.csv`
+  - Type: csv
+  - Table: `scotia_debito`
   - `skip_rows: 0`
 
 - BBVA (`tap-bbva`)
-  - Origen: `data/bbva/debito/*.csv`
-  - Tipo: csv
-  - Tabla: `bbva_debito`
+  - Source: `data/bbva/debito/*.csv`
+  - Type: csv
+  - Table: `bbva_debito`
   - `skip_rows: 5`
 
-## Destinos configurados
+## Configured Targets
 
 - Local (`target-jsonl`)
-  - Salida: `output/`
-  - Archivos timestamped (`do_timestamp_file: true`)
+  - Output: `output/`
+  - Timestamped files (`do_timestamp_file: true`)
 
 - BigQuery (`target-bigquery`, variant `z3z1ma`)
-  - Proyecto: `finanzas-personales-457115`
+  - Project: `finanzas-personales-457115`
   - Dataset: `bronze`
-  - Metodo: `batch_job`
-  - Credenciales: `secrets/finanzas-personales.json`
-  - Estrategia de recarga por stream: `overwrite` para `scotia_debito`, `itau_debito` y `bbva_debito`
+  - Method: `batch_job`
+  - Credentials: `secrets/finanzas-personales.json`
+  - Reload strategy by stream: `overwrite` for `scotia_debito`, `itau_debito`, and `bbva_debito`
 
-## Reglas de transformacion (stream_maps)
+## Transformation Rules (stream_maps)
 
-- `itau_debito`: filtra filas de saldo (`SALDO ANTERIOR` y `SALDO FINAL`).
-- `bbva_debito`: filtra filas vacias del CSV (`fecha is not None`).
+- `itau_debito`: filters balance rows (`SALDO ANTERIOR` and `SALDO FINAL`).
+- `bbva_debito`: filters empty CSV rows (`fecha is not None`).
 
-## Requisitos de ejecucion
+## Execution Requirements
 
-Usar siempre el entorno conda `meltano` antes de ejecutar Meltano.
+Always use the `meltano` conda environment before running Meltano.
 
-- Interactivo: `conda activate meltano`
-- No interactivo: `conda run -n meltano <comando>`
+- Interactive: `conda activate meltano`
+- Non-interactive: `conda run -n meltano <command>`
 
-## Setup inicial
+## Initial Setup
 
 ```bash
 conda activate meltano
@@ -88,72 +139,72 @@ pip install -r requirements.txt
 meltano install --clean
 ```
 
-## Flujo recomendado (JSONL primero)
+## Recommended Flow (JSONL First)
 
-1. Probar extraccion local con JSONL:
+1. Test local extraction with JSONL:
+
+   ```bash
+   conda run -n meltano meltano run tap-itau target-jsonl
+   conda run -n meltano meltano run tap-scotia target-jsonl
+   conda run -n meltano meltano run tap-bbva target-jsonl
+   ```
+
+2. Quickly validate files in `output/`.
+
+3. Load to BigQuery:
+
+   ```bash
+   conda run -n meltano meltano run pre-itau:convert_xls tap-itau target-bigquery
+   conda run -n meltano meltano run tap-scotia target-bigquery
+   conda run -n meltano meltano run tap-bbva target-bigquery
+   ```
+
+## Validation and Analysis Scripts
+
+After loading data to BigQuery, run validation scripts in `quality/analysis/`.
+
+Quick validation (immediately after load):
 
 ```bash
-conda run -n meltano meltano run tap-itau target-jsonl
-conda run -n meltano meltano run tap-scotia target-jsonl
-conda run -n meltano meltano run tap-bbva target-jsonl
+conda run -n meltano python3 quality/analysis/01_validate_shift.py [bank] [YYYY-MM]
 ```
 
-1. Validar rapidamente archivos en `output/`.
-
-2. Cargar a BigQuery:
-
-```bash
-conda run -n meltano meltano run pre-itau:convert_xls tap-itau target-bigquery
-conda run -n meltano meltano run tap-scotia target-bigquery
-conda run -n meltano meltano run tap-bbva target-bigquery
-```
-
-## Validación y Scripts de Análisis
-
-Después de cargar datos a BigQuery, ejecutar scripts de validación en carpeta `quality/analysis/`.
-
-Validación rápida (después de carga inmediata):
-
-```bash
-conda run -n meltano python3 quality/analysis/01_validate_shift.py [banco] [YYYY-MM]
-```
-
-Salida esperada:
+Expected output:
 
 ```text
-✅ NO DATA SHIFT - Normal, datos íntegros de fuente a agregado
-⚠️  DATA SHIFT DETECTADO - Ejecutar scripts 02-06 para investigación
+✅ NO DATA SHIFT - Normal, data is consistent from source to aggregate
+⚠️  DATA SHIFT DETECTED - Run scripts 02-06 for investigation
 ```
 
-Investigación completa:
+Full investigation:
 
-1. `01_validate_shift.py` - Reconciliación bronze→silver→gold
-2. `02_audit_flow.py` - Auditar dónde se pierden filas
-3. `03_analyze_investment_cycles.py` - Detectar ciclos débito→crédito
-4. `04_monthly_investment_impact.py` - Impacto mensual de ciclos
-5. `05_deep_investment_analysis.py` - Análisis profundo sin restricción temporal
-6. `06_monthly_impact_analysis.py` - Decisión final sobre data shift legítimo
+1. `01_validate_shift.py` - Bronze→Silver→Gold reconciliation
+2. `02_audit_flow.py` - Audit where rows are filtered
+3. `03_analyze_investment_cycles.py` - Detect debit→credit cycles
+4. `04_monthly_investment_impact.py` - Monthly cycle impact
+5. `05_deep_investment_analysis.py` - Deep analysis without time-window restriction
+6. `06_monthly_impact_analysis.py` - Final decision on legitimate data shift
 
-Ver **[quality/analysis/README.md](quality/analysis/README.md)** para:
+See [quality/analysis/README.md](quality/analysis/README.md) for:
 
-- Orden recomendado de ejecución
-- Interpretación de resultados por script
-- Casos de uso (validación rápida, investigación, auditoría completa)
-- Troubleshooting
+- recommended execution order,
+- script-by-script interpretation,
+- use cases (quick validation, investigation, full audit),
+- troubleshooting.
 
-**Guardrail**: Todos los scripts requieren `secrets/finanzas-personales.json` accesible.
+Guardrail: all scripts require `secrets/finanzas-personales.json` to be available.
 
-## Checklist de validacion
+## Validation Checklist
 
-1. La corrida se hace dentro del entorno `meltano`.
-2. `meltano run ...` termina sin errores.
-3. En pruebas locales se generan JSONL en `output/`.
-4. Campos esperados presentes (`fecha`, `concepto`, `debito`/`credito`, `saldo` segun banco).
-5. Hay filas en BigQuery despues de la carga.
+1. Run inside the `meltano` environment.
+2. `meltano run ...` finishes without errors.
+3. Local tests generate JSONL files in `output/`.
+4. Expected fields are present (`fecha`, `concepto`, `debito`/`credito`, `saldo` depending on bank).
+5. Rows are loaded in BigQuery after ingestion.
 
 ## Guardrails
 
-- No ejecutar Meltano fuera del entorno conda `meltano`.
-- No modificar `data/` ni `output/` salvo solicitud explicita.
-- No exponer secretos ni imprimir contenido de `secrets/finanzas-personales.json`.
-- Priorizar cambios en `meltano.yml` y documentacion antes de agregar scripts nuevos.
+- Do not run Meltano outside the `meltano` conda environment.
+- Do not modify `data/` or `output/` unless explicitly requested.
+- Do not expose secrets or print contents of `secrets/finanzas-personales.json`.
+- Prioritize changes in `meltano.yml` and documentation before adding new scripts.

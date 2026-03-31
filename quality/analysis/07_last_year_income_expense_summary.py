@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error,broad-exception-caught
 """
-Last Year Income vs Expense Summary: resumen consolidado y detalle mensual del ultimo año
+Last Year Income vs Expense Summary: consolidated yearly view plus monthly detail
 
-PROPOSITO:
-    Muestra ingresos vs egresos de los ultimos 12 meses usando el modelo gold.
-    Devuelve un resumen consolidado y una seccion con detalle mes a mes.
+PURPOSE:
+    Shows income vs expense for the last 12 months using the gold model.
+    Returns a consolidated summary and a month-by-month detail section.
 
-USO:
+USAGE:
     conda run -n meltano python3 quality/analysis/07_last_year_income_expense_summary.py
 
-EJEMPLOS:
+EXAMPLES:
   conda run -n meltano python3 quality/analysis/07_last_year_income_expense_summary.py
 """
 from google.cloud import bigquery
@@ -69,7 +69,7 @@ try:
     rows = list(client.query(summary_query).result())
 
     if not rows:
-        print("\n(No hay datos para el ultimo anio)")
+        print("\n(No data found for the last year)")
         sys.exit(2)
 
     row = rows[0]
@@ -131,10 +131,10 @@ try:
             )
 
     print(f'\n{"="*86}')
-    print("NOTA:")
-    print("  • Los montos salen de gold.agg_monthly_cashflow_total")
+    print("NOTE:")
+    print("  • Amounts come from gold.agg_monthly_cashflow_total")
     print(
-        "  • internal_transfer_count se informa por contexto, pero no impacta income/expense"
+        "  • internal_transfer_count is reported for context, but does not impact income/expense"
     )
     print("  • Net = income - expense")
     sys.exit(0)

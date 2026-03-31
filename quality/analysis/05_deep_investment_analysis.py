@@ -1,54 +1,54 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error
 """
-Deep Investment Analysis: Busca ciclos históricos completos (6+ meses)
-Incluye tolerancia por comisiones e intereses
+Deep Investment Analysis: searches for complete historical cycles (6+ months)
+Includes tolerance for commissions and interest
 
-PROPOSITO:
-  Análisis profundo de ciclos de inversión sin restricciones de tiempo.
-  Detecta patrones de retención/recuperación incluso si están abiertos o tras 6+ meses.
+PURPOSE:
+  Deep investment-cycle analysis without strict time limits.
+  Detects retention/recovery patterns even when cycles remain open or exceed 6 months.
 
-USO:
+USAGE:
   conda run -n meltano python3 quality/analysis/05_deep_investment_analysis.py
 
-OUTPUT ESPERADO:
-  Tres niveles de análisis:
+EXPECTED OUTPUT:
+  Three analysis levels:
 
-  1. UNIQUE DESCRIPTIONS: Todos los conceptos tipo inversión encontrados
-     Muestra frecuencia y montos débito vs crédito por concepto
+  1. UNIQUE DESCRIPTIONS: all investment-like concepts found
+     Shows frequency and debit vs credit amounts by concept
 
-  2. 6-MONTH CYCLES: Ciclos estrictos (180±30 días) con tolerancia por comisiones
-     Ej:
+  2. 6-MONTH CYCLES: strict cycles (180±30 days) with commission tolerance
+    Example:
      ✓ 2024-05-01 → 2024-11-01 (184 days)
        Debit:  $100,000.00 | LETRA DE CAMBIO 6M
        Credit: $101,234.00 | RESCATE LETRA...
        Commission/diff: 1.23%
 
-  3. ANY CLOSED CYCLES: Ciclos débito-crédito flexibles (sin restricción de días)
-     Busca cualquier debit que tenga credit correspondiente
-     ✓ Matched: Ciclo cerrado (devolución recibida)
-     ✗ Unmatched: Debit sin crédito visible
+  3. ANY CLOSED CYCLES: flexible debit-credit cycles (no day restriction)
+     Looks for any debit with a corresponding credit
+     ✓ Matched: closed cycle (recovery received)
+     ✗ Unmatched: debit without visible credit
 
-COMO INTERPRETAR RESULTADOS:
-  Commission/diff > 5%: Probablemente no es el ciclo real (buscar diferente)
-  Commission/diff 0-5%: Intereses o comisiones normales
-  Commission/diff < 0%: Recuperación con pérdida (ejercicio de opción, etc)
+HOW TO INTERPRET RESULTS:
+  Commission/diff > 5%: probably not the real cycle (search for another match)
+  Commission/diff 0-5%: normal interest or fees
+  Commission/diff < 0%: recovery with loss (option exercise, etc.)
 
-  Investment keywords high frequency: Tipo de movimiento más común
+  Investment keywords high frequency: most common movement type
 
-  If unmatched_count > 30%: Hay ciclos aún abiertos o sin devolución visible
+  If unmatched_count > 30%: there are still open cycles or no visible recovery yet
 
 GUARDRAILS:
-  • Este es análisis exploratorio (sin restricciones de tiempo)
-  • No prejuzga sobre data integrity; solo muestra patrones
-  • Un debit sin credit ≠ error; puede ser gasto real, comisión, reembolso parcial
-  • Ejecutar después de 04 para contexto completo
+  • This is exploratory analysis (no strict time restrictions)
+  • It does not infer data-integrity issues; it only shows patterns
+  • A debit without credit ≠ error; it may be real spending, fee, or partial reimbursement
+  • Run after 04 for full context
 
-PRÓXIMOS PASOS:
-  Si muchos unmatched:
-  1. Ver script 06 (monthly impact) para impacto global mes a mes
-  2. Verificar manualmente ciclos tras 6 meses (letras 12M, fondos plazo)
-  3. Investigar gestión manual de retenciones vs automatizadas
+NEXT STEPS:
+  If there are many unmatched entries:
+  1. Run script 06 (monthly impact) for month-by-month global impact
+  2. Manually verify cycles after 6 months (12M letters, term funds)
+  3. Investigate manual vs automated retention management
 """
 from google.cloud import bigquery
 import json
@@ -64,7 +64,7 @@ print(f'\n{"="*80}')
 print("DEEP INVESTMENT CYCLE ANALYSIS: ITAU")
 print(f'{"="*80}')
 
-# Paso 1: Todos los conceptos únicos
+# Step 1: all unique concepts
 print("\n1. UNIQUE DESCRIPTIONS (searching for investment keywords):")
 print("-" * 80)
 
@@ -95,7 +95,7 @@ for row in results1:
         f'    Freq: {row["freq"]:3d}  Debits: ${row["total_debits"]:>12,.2f}  Credits: ${row["total_credits"]:>12,.2f}'
     )
 
-# Paso 2: Busca ciclos de 6 meses (incluyendo comisiones)
+# Step 2: find 6-month cycles (including commission tolerance)
 print("\n\n2. 6-MONTH CYCLES (180 ± 30 days, with commission tolerance):")
 print("-" * 80)
 
@@ -151,7 +151,7 @@ if results2:
 else:
     print("  (No 6-month cycles found)")
 
-# Paso 3: Busca cualquier ciclo debit-credit que se cierre (flexible)
+# Step 3: find any closed debit-credit cycle (flexible)
 print("\n\n3. ANY CLOSED CYCLES (flexible matching, all periods):")
 print("-" * 80)
 
@@ -215,5 +215,7 @@ print(f"  6-month completed cycles:  {len(results2)}")
 print(
     f"  Investment debits total:   {matched_count} matched, {unmatched_count} unmatched"
 )
-print("\nNOTA: Si hay ciclos incompletos, pueden impactar meses específicos.")
-print('      Retenciones sin devolución aún visible son "datos normales" por ahora.')
+print("\nNOTE: Incomplete cycles can impact specific months.")
+print(
+    '      Retentions without visible recovery are currently considered "normal data".'
+)

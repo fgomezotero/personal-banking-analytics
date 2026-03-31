@@ -1,106 +1,106 @@
 # DBT Transform Layer
 
-Este directorio contiene la capa de transformacion analitica (silver y gold) sobre los datos ingestados en BigQuery desde Meltano.
+This directory contains the analytical transformation layer (silver and gold) on top of data ingested into BigQuery from Meltano.
 
-## Objetivo
+## Goal
 
-- Estandarizar movimientos bancarios en un modelo canonico (`silver.stg_movimientos`).
-- Construir tablas analiticas (`gold`) para reporting y KPIs:
+- Standardize banking movements in a canonical model (`silver.stg_movimientos`).
+- Build analytical tables (`gold`) for reporting and KPIs:
   - `gold.dim_bank`
   - `gold.dim_date`
   - `gold.fact_transactions`
   - `gold.agg_monthly_cashflow`
   - `gold.agg_monthly_cashflow_total`
 
-## Requisitos
+## Requirements
 
-- Conda disponible en el sistema.
-- Entorno conda `meltano` creado.
-- Dependencias Python instaladas (incluye dbt):
+- Conda available on the system.
+- `meltano` conda environment created.
+- Python dependencies installed (including dbt):
   - `dbt-core==1.8.8`
   - `dbt-bigquery==1.8.3`
-- Credenciales de BigQuery en:
+- BigQuery credentials in:
   - `secrets/finanzas-personales.json`
 
-## Estructura importante
+## Important Structure
 
-- `dbt_project.yml`: configuracion del proyecto dbt.
-- `profiles.yml`: conexion BigQuery para este workspace.
-- `macros/`: utilidades SQL reutilizables (`parse_amount`, `parse_mixed_date`, etc.).
-- `models/sources.yml`: definicion de fuentes bronze.
-- `models/silver/`: capa de estandarizacion.
-- `models/gold/`: capas dimensionales y agregados de negocio.
-- `models/schema.yml`: tests de calidad.
+- `dbt_project.yml`: dbt project configuration.
+- `profiles.yml`: BigQuery connection for this workspace.
+- `macros/`: reusable SQL utilities (`parse_amount`, `parse_mixed_date`, etc.).
+- `models/sources.yml`: bronze source definitions.
+- `models/silver/`: standardization layer.
+- `models/gold/`: dimensional and business aggregate layers.
+- `models/schema.yml`: data-quality tests.
 
-## Regla de schemas
+## Schema Rule
 
-El proyecto define un override en `macros/generate_schema_name.sql` para evitar el comportamiento por defecto de dbt en BigQuery (concatenar schema base + custom schema).
+The project defines an override in `macros/generate_schema_name.sql` to avoid dbt's default BigQuery behavior (base schema + custom schema concatenation).
 
-Resultado esperado:
+Expected result:
 
-- modelos silver -> dataset `silver`
-- modelos gold -> dataset `gold`
+- silver models -> dataset `silver`
+- gold models -> dataset `gold`
 
-## Comandos base
+## Core Commands
 
-Ejecutar siempre dentro del entorno conda `meltano`.
+Always run inside the `meltano` conda environment.
 
-### 1. Validar conexion
+### 1. Validate connection
 
 ```bash
 conda run -n meltano dbt debug --project-dir transform --profiles-dir transform
 ```
 
-### 2. Ejecutar todos los modelos
+### 2. Run all models
 
 ```bash
 conda run -n meltano dbt run --project-dir transform --profiles-dir transform
 ```
 
-### 3. Ejecutar modelos seleccionados
+### 3. Run selected models
 
 ```bash
 conda run -n meltano dbt run --project-dir transform --profiles-dir transform --select stg_movimientos
 conda run -n meltano dbt run --project-dir transform --profiles-dir transform --select fact_transactions
 ```
 
-### 4. Ejecutar tests
+### 4. Run tests
 
 ```bash
 conda run -n meltano dbt test --project-dir transform --profiles-dir transform
 ```
 
-### 5. Build completo (run + test)
+### 5. Full build (run + test)
 
 ```bash
 conda run -n meltano dbt build --project-dir transform --profiles-dir transform
 ```
 
-## Documentacion y linaje
+## Documentation and Lineage
 
-### Generar artefactos de docs
+### Generate docs artifacts
 
 ```bash
 conda run -n meltano dbt docs generate --project-dir transform --profiles-dir transform
 ```
 
-Esto genera (entre otros):
+This generates (among others):
 
 - `target/index.html`
 - `target/manifest.json`
 - `target/catalog.json`
 
-### Servir docs localmente
+### Serve docs locally
 
 ```bash
 conda run -n meltano dbt docs serve --project-dir transform --profiles-dir transform --port 8081 --no-browser
 ```
 
-Abrir en navegador:
+Open in browser:
 
 - `http://127.0.0.1:8081`
 
-## Fuentes esperadas en BigQuery
+## Expected BigQuery Sources
 
 Dataset `bronze`:
 
@@ -108,40 +108,40 @@ Dataset `bronze`:
 - `scotia_debito`
 - `bbva_debito`
 
-Si falta una fuente, `dbt run` puede fallar al resolver `source()`.
+If a source is missing, `dbt run` may fail while resolving `source()`.
 
-## Calidad de datos cubierta por tests
+## Data Quality Covered by Tests
 
-- `not_null` en claves y columnas criticas.
-- `unique` en dimensiones y `transaction_id`.
-- `relationships` de `fact_transactions` con `dim_bank` y `dim_date`.
-- `accepted_values` para `bank_code` y `movement_type`.
+- `not_null` on keys and critical columns.
+- `unique` on dimensions and `transaction_id`.
+- `relationships` from `fact_transactions` to `dim_bank` and `dim_date`.
+- `accepted_values` for `bank_code` and `movement_type`.
 
-## Troubleshooting rapido
+## Quick Troubleshooting
 
-### Error de credenciales
+### Credential error
 
-Verificar `keyfile` en `profiles.yml`:
+Verify `keyfile` in `profiles.yml`:
 
 - `secrets/finanzas-personales.json`
 
-### Modelos en schema no esperado
+### Models in unexpected schema
 
-Verificar existencia y contenido de:
+Verify existence and content of:
 
 - `macros/generate_schema_name.sql`
 
-### Cero filas en salida
+### Zero rows in output
 
-Revisar:
+Check:
 
-- parsing de fechas (`parse_mixed_date`)
-- parsing de montos (`parse_amount`)
-- que las tablas bronze tengan datos actuales
+- date parsing (`parse_mixed_date`)
+- amount parsing (`parse_amount`)
+- that bronze tables contain current data
 
-## Buenas practicas operativas
+## Operational Best Practices
 
-- No commitear `target/`, `logs/`, `dbt_packages/` ni `.user.yml`.
-- No exponer el contenido de credenciales en logs o docs.
-- Ejecutar primero `dbt debug` ante cambios de entorno.
-- Usar `dbt build` antes de merge para validar transformaciones y tests.
+- Do not commit `target/`, `logs/`, `dbt_packages/`, or `.user.yml`.
+- Do not expose credential contents in logs or docs.
+- Run `dbt debug` first after environment changes.
+- Use `dbt build` before merge to validate transformations and tests.

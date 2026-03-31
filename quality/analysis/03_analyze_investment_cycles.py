@@ -1,42 +1,42 @@
 #!/usr/bin/env python3
 # pylint: disable=import-error
 """
-Investment Cycle Analyzer: Detecta ciclos de retención-devolución en Itau
+Investment Cycle Analyzer: detects retention-recovery cycles in Itau
 
-PROPOSITO:
-  Identifica movimientos de inversión/retención y su correspondiente devolución.
-  Entender ciclos completos (debit→credit) ayuda a explicar data shift.
+PURPOSE:
+  Identifies investment/retention movements and their corresponding recoveries.
+  Understanding complete cycles (debit->credit) helps explain monthly data shift.
 
-USO:
+USAGE:
   conda run -n meltano python3 quality/analysis/03_analyze_investment_cycles.py
 
-OUTPUT ESPERADO:
-  1. Descripción de movimientos tipo inversión encontrados
-  2. Listado de ciclos cerrados (débito + crédito correspondiente)
-  3. Débitos sin devolución aún visible
+EXPECTED OUTPUT:
+  1. Description list of investment-like movements found
+  2. Closed cycles list (debit + corresponding credit)
+  3. Debits without visible recovery yet
 
-  Ejemplo:
-  ✅ 2024-05-01 → 2024-11-01 (184 días): $100,000.00
-     Débito:  LETRA DE CAMBIO 6M
-     Crédito: RESCATE LETRA...
+  Example:
+  ✅ 2024-05-01 -> 2024-11-01 (184 days): $100,000.00
+     Debit:  LETRA DE CAMBIO 6M
+     Credit: RESCATE LETRA...
 
-  ❌ 2024-06-15 (sin devolución): $50,000.00
-     Débito:  RETENCIÓN RETORNO
+  ❌ 2024-06-15 (without recovery): $50,000.00
+     Debit:  RETENCION RETORNO
 
-COMO INTERPRETAR RESULTADOS:
-  ✅ Ciclos completos: Normales. Explican por qué hay diferencia débito/crédito mes a mes
-  ❌ Débitos sin devolución: Pueden ser:
-     a) Ciclos aún abiertos (devolución en futuro próximo)
-     b) Movimientos de gasto real (no retención)
-     c) Comisiones o ajustes
+HOW TO INTERPRET RESULTS:
+  ✅ Complete cycles: normal; they explain month-level debit/credit differences
+  ❌ Debits without recovery: they may be:
+     a) Open cycles (recovery expected in a future month)
+     b) Real spending movements (not retention)
+     c) Fees or manual adjustments
 
-  Si >50% sin devolución = investigar movimientos manuales o ajustes
+  If >50% have no recovery, investigate manual movements or adjustments
 
 GUARDRAILS:
-  • Ejecutar después de 01 y 02 para contexto
-  • Ciclos > 180 días se truncan (ver script 05 para ciclos flexibles)
-  • Solo analiza Itaú (otros bancos pueden no tener inversiones)
-  • Si devoluciones están en futuro, ver 04_monthly_investment_impact.py
+  • Run after scripts 01 and 02 for context
+  • Cycles > 180 days are truncated (see script 05 for flexible cycles)
+  • This script only analyzes Itau (other banks may not include investments)
+  • If recoveries are in the future, see 04_monthly_investment_impact.py
 """
 from google.cloud import bigquery
 import json
@@ -52,7 +52,7 @@ print(f'\n{"="*70}')
 print("INVESTMENT CYCLE ANALYZER: ITAU")
 print(f'{"="*70}')
 
-# Busca movimientos tipo inversión/retención
+# Find investment/retention-like movements
 q_concepts = """
 SELECT DISTINCT description
 FROM `finanzas-personales-457115.silver.stg_movimientos`
@@ -66,16 +66,16 @@ WHERE bank_code = 'itau'
 ORDER BY description
 """
 
-print("\nDescripciones encontradas en Itau (potenciales inversiones):")
+print("\nDescriptions found in Itau (potential investments):")
 print("-" * 70)
 results = list(client.query(q_concepts).result())
 if results:
     for row in results:
         print(f'  • {row["description"]}')
 else:
-    print("  (Ninguna encontrada)")
+    print("  (None found)")
 
-# Análisis de ciclos completos: busca débito y crédito del mismo monto
+# Complete-cycle analysis: match debit and credit with similar amount
 q_cycles = """
 WITH itau_movements AS (
   SELECT
@@ -104,7 +104,7 @@ ORDER BY debit_mov.transaction_date DESC
 LIMIT 20
 """
 
-print("\n\nCiclos Inversión-Devolución (últimos 20):")
+print("\n\nInvestment-Recovery Cycles (latest 20):")
 print("-" * 70)
 results = list(client.query(q_cycles).result())
 
@@ -115,20 +115,22 @@ for row in results:
     if row["credit_date"]:
         matched += 1
         print(
-            f'✅ {row["debit_date"].strftime("%Y-%m-%d")} → {row["credit_date"].strftime("%Y-%m-%d")} ({row["cycle_days"]:3d} días): ${row["amount"]:,.2f}'
+            f'✅ {row["debit_date"].strftime("%Y-%m-%d")} -> {row["credit_date"].strftime("%Y-%m-%d")} ({row["cycle_days"]:3d} days): ${row["amount"]:,.2f}'
         )
-        print(f'   Débito:  {row["debit_desc"][:50]}')
-        print(f'   Crédito: {row["credit_desc"][:50]}')
+        print(f'   Debit:   {row["debit_desc"][:50]}')
+        print(f'   Credit:  {row["credit_desc"][:50]}')
     else:
         unmatched += 1
         print(
-            f'❌ {row["debit_date"].strftime("%Y-%m-%d")} (sin devolución):             ${row["amount"]:,.2f}'
+            f'❌ {row["debit_date"].strftime("%Y-%m-%d")} (without recovery):           ${row["amount"]:,.2f}'
         )
-        print(f'   Débito:  {row["debit_desc"][:50]}')
+        print(f'   Debit:   {row["debit_desc"][:50]}')
 
 print(f'\n{"="*70}')
 print("SUMMARY:")
-print(f"  Ciclos completos (debit→credit): {matched}")
-print(f"  Débitos sin devolución:          {unmatched}")
-print("\nNOTA: Este análisis explica retenciones legítimas que impactan mes a mes.")
-print('      Si tienes ciclos largos (>90 días), verás meses "desbalanceados".')
+print(f"  Complete cycles (debit->credit): {matched}")
+print(f"  Debits without recovery:         {unmatched}")
+print(
+    "\nNOTE: This analysis explains legitimate retentions that impact month-to-month balances."
+)
+print('      If you have long cycles (>90 days), you will see "unbalanced" months.')
