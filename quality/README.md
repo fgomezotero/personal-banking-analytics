@@ -13,7 +13,10 @@ quality/
 │   ├── 03_analyze_investment_cycles.py
 │   ├── 04_monthly_investment_impact.py
 │   ├── 05_deep_investment_analysis.py
-│   └── 06_monthly_impact_analysis.py
+│   ├── 06_monthly_impact_analysis.py
+│   ├── 07_last_year_income_expense_summary.py
+│   └── 08_income_analysis_by_month.py
+├── audit/                 # Audit artifacts and investigation outputs
 └── reconciliation/        # (Reserved for future)
 ```
 
