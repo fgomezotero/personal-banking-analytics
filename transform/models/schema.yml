@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: stg_movimientos
+    description: Movimientos bancarios unificados y normalizados en formato canónico.
+    columns:
+      - name: bank_code
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['itau', 'scotia', 'bbva']
+      - name: transaction_date
+        tests:
+          - not_null
+      - name: row_hash
+        tests:
+          - not_null
+
+  - name: dim_bank
+    description: Dimensión de bancos de referencia.
+    columns:
+      - name: bank_code
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_date
+    description: Dimensión de fechas derivada de movimientos.
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - unique
+
+  - name: fact_transactions
+    description: Hecho de transacciones para analítica de ingresos y gastos sin neto persistido.
+    columns:
+      - name: transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: bank_code
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_bank')
+              field: bank_code
+      - name: transaction_date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: movement_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['income', 'expense', 'internal_transfer']
+
+  - name: agg_monthly_cashflow
+    description: Agregado mensual por banco para KPIs de ingresos y gastos.
+    columns:
+      - name: year_month
+        tests:
+          - not_null
+      - name: bank_code
+        tests:
+          - not_null
+
+  - name: agg_monthly_cashflow_total
+    description: Agregado mensual consolidado de todas las cuentas y bancos.
+    columns:
+      - name: year_month
+        tests:
+          - not_null

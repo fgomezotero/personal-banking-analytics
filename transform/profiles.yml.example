@@ -1,0 +1,13 @@
+finanzas_dwh:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: finanzas-personales-457115
+      dataset: bronze
+      threads: 4
+      keyfile: secrets/finanzas-personales.json
+      job_execution_timeout_seconds: 300
+      location: US
+      priority: interactive

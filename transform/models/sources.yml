@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: finanzas-personales-457115
+    schema: bronze
+    tables:
+      - name: itau_debito
+      - name: scotia_debito
+      - name: bbva_debito

@@ -43,10 +43,10 @@ Estado actual del workspace:
   - Salida: carpeta `output/`
   - Archivo timestamped cuando `do_timestamp_file: true`
 
-- BigQuery:
+- BigQuery (Arquitectura Medallion):
   - Loader: `target-bigquery`
   - Proyecto: `finanzas-personales-457115`
-  - Dataset: `bronze`
+  - Dataset destino: `bronze` (capa de ingesta de fuentes)
   - Credenciales: `secrets/finanzas-personales.json`
   - Metodo: `batch_job`
 
@@ -100,6 +100,34 @@ Al modificar configuracion o pipeline, validar siempre:
 5. La metadata de origen sigue presente cuando corresponda.
 6. La carga a BigQuery inserta filas nuevas en `bronze`.
 
+## Validación y Scripts de Análisis
+
+Después de cada carga a BigQuery, ejecutar scripts de validación en orden:
+
+Validación rápida (después de carga inmediata):
+
+```bash
+conda run -n meltano python3 quality/analysis/01_validate_shift.py [banco] [YYYY-MM]
+```
+
+Auditoría completa (investigación de data shift o anomalías):
+
+1. `01_validate_shift.py`: Reconciliación completa bronze→silver→gold
+2. `02_audit_flow.py`: Auditar filtrado en cada transformación
+3. `03_analyze_investment_cycles.py`: Detectar ciclos débito→crédito
+4. `04_monthly_investment_impact.py`: Impacto mensual de ciclos 6M
+5. `05_deep_investment_analysis.py`: Análisis profundo sin restricción temporal
+6. `06_monthly_impact_analysis.py`: Decisión final sobre data shift legítimo
+
+Documentación completa: ver [quality/analysis/README.md](../quality/analysis/README.md)
+
+Reglas para scripts de análisis:
+
+- Todos los scripts usan sandbox de lectura BigQuery (no modifican datos)
+- Todos requieren `secrets/finanzas-personales.json` accesible en raíz
+- Ejecutar siempre con `conda run -n meltano` para consistencia
+- No están diseñados para automatización diaria; son herramientas de investigación
+
 ## Guardrails para colaboradores y agentes
 
 - Priorizar cambios en `meltano.yml` y documentacion antes que crear scripts innecesarios.
@@ -109,6 +137,7 @@ Al modificar configuracion o pipeline, validar siempre:
 - No imprimir contenido de `secrets/finanzas-personales.json`.
 - Si una tarea requiere Santander, confirmar primero existencia de `data/santander/debito`.
 - Mantener README y estas instrucciones alineadas cuando cambie el flujo.
+- Los scripts en `quality/analysis/` están organizados para ejecución secuencial (01→06); no modificarlos ni crear duplicados.
 
 ## Errores comunes y diagnostico rapido
 

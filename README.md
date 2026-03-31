@@ -20,6 +20,19 @@ Unificar movimientos de cuentas bancarias personales en un flujo reproducible pa
 
 Toda la configuracion del pipeline vive en `meltano.yml`.
 
+## Transformaciones dbt (silver/gold)
+
+La capa de transformaciones analiticas con dbt se documenta en:
+
+- `transform/README.md`
+
+Incluye:
+
+- prerequisitos y configuracion de perfiles,
+- ejecucion de modelos (`dbt run` / `dbt build`),
+- ejecucion de tests (`dbt test`),
+- generacion y publicacion local de documentacion y linaje (`dbt docs generate` / `dbt docs serve`).
+
 ## Fuentes configuradas
 
 - Itau (`tap-itau`)
@@ -94,6 +107,41 @@ conda run -n meltano meltano run pre-itau:convert_xls tap-itau target-bigquery
 conda run -n meltano meltano run tap-scotia target-bigquery
 conda run -n meltano meltano run tap-bbva target-bigquery
 ```
+
+## Validación y Scripts de Análisis
+
+Después de cargar datos a BigQuery, ejecutar scripts de validación en carpeta `quality/analysis/`.
+
+Validación rápida (después de carga inmediata):
+
+```bash
+conda run -n meltano python3 quality/analysis/01_validate_shift.py [banco] [YYYY-MM]
+```
+
+Salida esperada:
+
+```text
+✅ NO DATA SHIFT - Normal, datos íntegros de fuente a agregado
+⚠️  DATA SHIFT DETECTADO - Ejecutar scripts 02-06 para investigación
+```
+
+Investigación completa:
+
+1. `01_validate_shift.py` - Reconciliación bronze→silver→gold
+2. `02_audit_flow.py` - Auditar dónde se pierden filas
+3. `03_analyze_investment_cycles.py` - Detectar ciclos débito→crédito
+4. `04_monthly_investment_impact.py` - Impacto mensual de ciclos
+5. `05_deep_investment_analysis.py` - Análisis profundo sin restricción temporal
+6. `06_monthly_impact_analysis.py` - Decisión final sobre data shift legítimo
+
+Ver **[quality/analysis/README.md](quality/analysis/README.md)** para:
+
+- Orden recomendado de ejecución
+- Interpretación de resultados por script
+- Casos de uso (validación rápida, investigación, auditoría completa)
+- Troubleshooting
+
+**Guardrail**: Todos los scripts requieren `secrets/finanzas-personales.json` accesible.
 
 ## Checklist de validacion
 
