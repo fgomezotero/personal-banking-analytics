@@ -1,0 +1,90 @@
+<mxfile host="app.diagrams.net" modified="2026-03-31T00:00:00.000Z" agent="GitHub Copilot" version="24.7.17" editor="draw.io">
+  <diagram id="high-level-architecture" name="High-Level Architecture">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Personal Banking Analytics - High-Level Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontStyle=1;fontSize=22;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n1" value="Local CSV/XLS Files&#xa;Itau, Scotia, BBVA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n2" value="Meltano Extractors&#xa;tap-itau, tap-scotia, tap-bbva" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="320" y="150" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n3" value="target-jsonl&#xa;Local output validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="650" y="90" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n4" value="target-bigquery&#xa;BigQuery bronze load" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="650" y="210" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n5" value="BigQuery Bronze&#xa;Raw source data by bank" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="960" y="210" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n6" value="dbt Silver&#xa;Standardization and classification" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="960" y="330" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n7" value="dbt Gold&#xa;Facts and monthly aggregates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="960" y="450" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n8" value="quality/analysis scripts&#xa;01-08 validation and analysis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfccb;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="390" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n9" value="Analytics consumption&#xa;reports and financial exploration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cffafe;strokeColor=#334155;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="510" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e3" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n2" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="220" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e4" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n4" target="n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e5" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e6" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n6" target="n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e7" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n7" target="n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e8" style="endArrow=block;endFill=1;strokeWidth=2;rounded=0;" edge="1" parent="1" source="n7" target="n9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

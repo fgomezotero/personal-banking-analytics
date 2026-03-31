@@ -18,19 +18,10 @@ Unify personal bank-account movements in a reproducible workflow to:
 
 ### High-Level Architecture Diagram
 
-```mermaid
-flowchart LR
-  A[Local CSV/XLS files\nItau, Scotia, BBVA] --> B[Meltano Extractors\ntap-itau, tap-scotia, tap-bbva]
-  B --> C[target-jsonl\nLocal output validation]
-  B --> D[target-bigquery\nBigQuery bronze load]
+![High-Level Architecture](docs/architecture/high-level-architecture.svg)
 
-  D --> E[BigQuery Bronze\nRaw source data by bank]
-  E --> F[dbt Silver\nStandardization and classification]
-  F --> G[dbt Gold\nFacts and monthly aggregates]
-
-  G --> H[quality/analysis scripts\n01-08 validation and analysis]
-  G --> I[Analytics consumption\nreports and financial exploration]
-```
+Source diagram file: `docs/architecture/high-level-architecture.svg` (SVG, GitHub-renderable and scalable).
+Editable source: `docs/architecture/high-level-architecture.drawio` (open in diagrams.net / draw.io).
 
 ## Configuration Source of Truth
 
